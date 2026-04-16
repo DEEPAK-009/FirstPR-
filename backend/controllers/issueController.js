@@ -1,16 +1,26 @@
+const { fetchIssuesFromGitHub } = require("../services/githubService");
+
 const recommendIssues = async (req, res) => {
   try {
     const { skills } = req.body;
 
-    console.log("Skills received:", skills);
+    // 🔥 Fetch issues
+    const issues = await fetchIssuesFromGitHub(skills);
 
     res.json({
-      message: "API working",
-      skills: skills
+      total: issues.length,
+      issues: issues.map((issue) => ({
+        title: issue.title,
+        body: issue.body,
+        url: issue.html_url,
+        labels: issue.labels.map((label) => label.name),
+        comments: issue.comments,
+        issue_length: issue.body ? issue.body.length : 0,
+        label_count: issue.labels.length,
+      })),
     });
-
   } catch (error) {
-    res.status(500).json({ error: "Something went wrong" });
+    res.status(500).json({ error: "Failed to fetch issues" });
   }
 };
 
