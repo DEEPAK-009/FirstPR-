@@ -40,3 +40,14 @@ out/
 Thumbs.db
 .vscode/
 .idea/
+
+
+# Python cache
+__pycache__/
+*.pyc
+
+# ML models
+*.pkl
+
+# Optional datasets
+issues.csv
