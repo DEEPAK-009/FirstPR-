@@ -11,6 +11,11 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('Backend is running 🚀');
 });
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', port: 5070 });
+});
+
 app.use('/api/issues', issueRoutes);
 
 module.exports = app;
