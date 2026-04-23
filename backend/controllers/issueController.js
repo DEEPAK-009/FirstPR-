@@ -6,6 +6,12 @@ const recommendIssues = async (req, res) => {
   try {
     const { skills } = req.body;
 
+    if (!Array.isArray(skills) || skills.length === 0) {
+      return res.status(400).json({
+        error: 'skills must be a non-empty array'
+      });
+    }
+
     // 🔥 1. Fetch issues from GitHub
     const issues = await fetchIssuesFromGitHub(skills);
 
@@ -17,15 +23,23 @@ const recommendIssues = async (req, res) => {
     );
 
     // 🔥 3. Get ML predictions (parallel)
-    const predictions = await Promise.all(
-      filteredIssues.map(issue => getPrediction({
-        title: issue.title,
-        body: issue.body,
-        comments: issue.comments,
-        issue_length: issue.body.length,
-        label_count: issue.labels.length
-      }))
-    );
+    let predictions;
+
+    try {
+      predictions = await Promise.all(
+        filteredIssues.map(issue => getPrediction({
+          title: issue.title,
+          body: issue.body,
+          labels: issue.labels.map(label => label.name).join(' ')
+        }))
+      );
+    } catch (error) {
+      if (error.code === 'ML_API_UNAVAILABLE') {
+        return res.status(503).json({ error: 'ML service unavailable' });
+      }
+
+      throw error;
+    }
 
     // 🔥 4. Keep only beginner-friendly issues
     const mlFiltered = filteredIssues

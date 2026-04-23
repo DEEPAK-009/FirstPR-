@@ -7,16 +7,20 @@ const getPrediction = async (issue) => {
     const response = await axios.post(ML_API_URL, {
       title: issue.title,
       body: issue.body,
-      comments: issue.comments,
-      issue_length: issue.issue_length,
-      label_count: issue.label_count
+      labels: issue.labels || ''
     });
 
-    return response.data;
+    return {
+      ...response.data,
+      confidence: response.data.probability ?? 0
+    };
 
   } catch (error) {
-    console.error("ML API Error:", error.message);
-    return { is_beginner_friendly: false, confidence: 0 };
+    console.error("ML API Error:", error.response?.data || error.message);
+
+    const serviceError = new Error('ML service unavailable');
+    serviceError.code = 'ML_API_UNAVAILABLE';
+    throw serviceError;
   }
 };
 
