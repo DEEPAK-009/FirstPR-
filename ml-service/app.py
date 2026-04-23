@@ -13,7 +13,7 @@ with MODEL_PATH.open("rb") as f:
     artifact = pickle.load(f)
 
 pipeline = artifact["pipeline"]
-
+ 
 # --- App setup ---
 app = FastAPI(
     title="Beginner Issue Classifier API",
