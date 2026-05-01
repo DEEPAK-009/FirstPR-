@@ -2,8 +2,10 @@ const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
 const { generateExplanation } = require('../services/geminiService');
 const INITIAL_GITHUB_FETCH_SIZE = 100;
-const MAX_GITHUB_PAGES = 3;
+const MAX_GITHUB_PAGES = 5;
 const MIN_PRE_ML_CANDIDATES = 25;
+const MIN_FINAL_RESULTS = 5;
+const RELAXED_BODY_MIN_LENGTH = 20;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -65,6 +67,68 @@ const isStrongIssue = (issue) =>
   issue.body.length > 50 &&
   issue.title.length > 10;
 
+const isRelaxedIssue = (issue) =>
+  issue.body &&
+  issue.body.length > RELAXED_BODY_MIN_LENGTH &&
+  issue.title.length > 10;
+
+const mergeUniqueIssues = (issues) => {
+  const seenIssueIds = new Set();
+
+  return issues.filter((issue) => {
+    if (seenIssueIds.has(issue.id)) {
+      return false;
+    }
+
+    seenIssueIds.add(issue.id);
+    return true;
+  });
+};
+
+const rankByConfidence = (issues) =>
+  [...issues].sort(
+    (left, right) => (right.prediction?.confidence ?? 0) - (left.prediction?.confidence ?? 0)
+  );
+
+const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
+  const issuesToPredict = issues.filter((issue) => !predictionCache.has(issue.id));
+
+  if (issuesToPredict.length > 0) {
+    let predictions;
+
+    try {
+      predictions = await Promise.all(
+        issuesToPredict.map((issue) =>
+          getPrediction({
+            title: issue.title,
+            body: issue.body,
+            labels: issue.labels.map((label) => label.name).join(' ')
+          })
+        )
+      );
+    } catch (error) {
+      if (error.code === 'ML_API_UNAVAILABLE') {
+        return { error };
+      }
+
+      throw error;
+    }
+
+    issuesToPredict.forEach((issue, index) => {
+      predictionCache.set(issue.id, predictions[index]);
+    });
+  }
+
+  return {
+    issues: issues
+      .map((issue) => ({
+        ...issue,
+        prediction: predictionCache.get(issue.id)
+      }))
+      .filter((issue) => issue.prediction?.is_beginner_friendly)
+  };
+};
+
 const recommendIssues = async (req, res) => {
   try {
     const { skills } = req.body;
@@ -78,13 +142,15 @@ const recommendIssues = async (req, res) => {
     // 🔥 1. Fetch issues from GitHub with pagination fallback
     const issues = [];
     const seenIssueIds = new Set();
+    const predictionCache = new Map();
     let page = 1;
     let pagesFetched = 0;
-    let filteredIssues = [];
+    let strictCandidates = [];
+    let strictUsableIssues = [];
     let githubTotalCount = 0;
     let incompleteResults = false;
 
-    while (page <= MAX_GITHUB_PAGES && filteredIssues.length < MIN_PRE_ML_CANDIDATES) {
+    while (page <= MAX_GITHUB_PAGES) {
       const response = await fetchIssuesFromGitHub(skills, {
         page,
         perPage: INITIAL_GITHUB_FETCH_SIZE
@@ -101,56 +167,79 @@ const recommendIssues = async (req, res) => {
         }
       });
 
-      filteredIssues = issues.filter(isStrongIssue);
+      strictCandidates = issues.filter(isStrongIssue);
+
+      const predictionResult = await predictBeginnerFriendlyIssues(
+        strictCandidates,
+        predictionCache
+      );
+
+      if (predictionResult.error?.code === 'ML_API_UNAVAILABLE') {
+        return res.status(503).json({ error: 'ML service unavailable' });
+      }
+
+      strictUsableIssues = rankByConfidence(predictionResult.issues || []);
+
+      const hasEnoughStrongCandidates = strictCandidates.length >= MIN_PRE_ML_CANDIDATES;
+      const hasEnoughUsableResults = strictUsableIssues.length >= MIN_FINAL_RESULTS;
 
       if (response.items.length < INITIAL_GITHUB_FETCH_SIZE) {
+        break;
+      }
+
+      if (hasEnoughStrongCandidates && hasEnoughUsableResults) {
         break;
       }
 
       page += 1;
     }
 
-    // 🔥 3. Get ML predictions (parallel)
-    let predictions;
+    // 🔥 3. Relax the backend quality filter only if strict candidates are still too few
+    let finalCandidateIssues = strictUsableIssues;
+    let relaxedCandidates = [];
+    let usedRelaxedFiltering = false;
 
-    try {
-      predictions = await Promise.all(
-        filteredIssues.map(issue => getPrediction({
-          title: issue.title,
-          body: issue.body,
-          labels: issue.labels.map(label => label.name).join(' ')
-        }))
+    if (finalCandidateIssues.length < MIN_FINAL_RESULTS) {
+      relaxedCandidates = issues.filter(
+        (issue) => !isStrongIssue(issue) && isRelaxedIssue(issue)
       );
-    } catch (error) {
-      if (error.code === 'ML_API_UNAVAILABLE') {
+
+      const relaxedPredictionResult = await predictBeginnerFriendlyIssues(
+        relaxedCandidates,
+        predictionCache
+      );
+
+      if (relaxedPredictionResult.error?.code === 'ML_API_UNAVAILABLE') {
         return res.status(503).json({ error: 'ML service unavailable' });
       }
 
-      throw error;
+      finalCandidateIssues = rankByConfidence(
+        mergeUniqueIssues([
+          ...strictUsableIssues,
+          ...(relaxedPredictionResult.issues || [])
+        ])
+      );
+
+      usedRelaxedFiltering = relaxedCandidates.length > 0;
     }
 
-    // 🔥 4. Keep only beginner-friendly issues
-    const mlFiltered = filteredIssues
-      .map((issue, i) => ({
-        ...issue,
-        prediction: predictions[i]
-      }))
-      .filter(item => item.prediction.is_beginner_friendly);
-
-    // 🔥 5. Gemini explanations (parallel)
+    // 🔥 4. Gemini explanations (parallel)
     const explanations = await Promise.all(
-      mlFiltered.map(issue => generateExplanation(issue))
+      finalCandidateIssues.map(issue => generateExplanation(issue))
     );
 
-    // 🔥 6. Final response formatting
-    const finalResults = mlFiltered.map((issue, i) =>
+    // 🔥 5. Final response formatting
+    const finalResults = finalCandidateIssues.map((issue, i) =>
       formatIssue(issue, explanations[i], skills)
     );
 
     res.json({
       github: {
         fetched: issues.length,
-        strongCandidates: filteredIssues.length,
+        strongCandidates: strictCandidates.length,
+        strictUsableResults: strictUsableIssues.length,
+        relaxedCandidates: relaxedCandidates.length,
+        usedRelaxedFiltering,
         pagesFetched,
         totalCount: githubTotalCount,
         incompleteResults
