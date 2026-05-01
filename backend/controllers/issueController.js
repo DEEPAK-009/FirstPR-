@@ -1,6 +1,9 @@
 const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
 const { generateExplanation } = require('../services/geminiService');
+const INITIAL_GITHUB_FETCH_SIZE = 100;
+const MAX_GITHUB_PAGES = 3;
+const MIN_PRE_ML_CANDIDATES = 25;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -57,6 +60,11 @@ const formatIssue = (issue, explanation, skills) => ({
   matchReason: buildMatchReason(issue, skills)
 });
 
+const isStrongIssue = (issue) =>
+  issue.body &&
+  issue.body.length > 50 &&
+  issue.title.length > 10;
+
 const recommendIssues = async (req, res) => {
   try {
     const { skills } = req.body;
@@ -67,15 +75,40 @@ const recommendIssues = async (req, res) => {
       });
     }
 
-    // 🔥 1. Fetch issues from GitHub
-    const issues = await fetchIssuesFromGitHub(skills);
+    // 🔥 1. Fetch issues from GitHub with pagination fallback
+    const issues = [];
+    const seenIssueIds = new Set();
+    let page = 1;
+    let pagesFetched = 0;
+    let filteredIssues = [];
+    let githubTotalCount = 0;
+    let incompleteResults = false;
 
-    // 🔥 2. Filter low-quality issues
-    const filteredIssues = issues.filter(issue =>
-      issue.body &&
-      issue.body.length > 50 &&
-      issue.title.length > 10
-    );
+    while (page <= MAX_GITHUB_PAGES && filteredIssues.length < MIN_PRE_ML_CANDIDATES) {
+      const response = await fetchIssuesFromGitHub(skills, {
+        page,
+        perPage: INITIAL_GITHUB_FETCH_SIZE
+      });
+
+      githubTotalCount = response.totalCount;
+      incompleteResults = response.incompleteResults;
+      pagesFetched += 1;
+
+      response.items.forEach((issue) => {
+        if (!seenIssueIds.has(issue.id)) {
+          seenIssueIds.add(issue.id);
+          issues.push(issue);
+        }
+      });
+
+      filteredIssues = issues.filter(isStrongIssue);
+
+      if (response.items.length < INITIAL_GITHUB_FETCH_SIZE) {
+        break;
+      }
+
+      page += 1;
+    }
 
     // 🔥 3. Get ML predictions (parallel)
     let predictions;
@@ -115,6 +148,13 @@ const recommendIssues = async (req, res) => {
     );
 
     res.json({
+      github: {
+        fetched: issues.length,
+        strongCandidates: filteredIssues.length,
+        pagesFetched,
+        totalCount: githubTotalCount,
+        incompleteResults
+      },
       total: finalResults.length,
       issues: finalResults
     });
