@@ -2,6 +2,61 @@ const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
 const { generateExplanation } = require('../services/geminiService');
 
+const getRepoName = (issue) => {
+  if (issue.repository_url?.includes('/repos/')) {
+    return issue.repository_url.split('/repos/')[1];
+  }
+
+  if (issue.html_url?.includes('github.com/')) {
+    const [, repoPath] = issue.html_url.split('github.com/');
+    return repoPath?.split('/issues/')[0] || 'unknown repository';
+  }
+
+  return 'unknown repository';
+};
+
+const buildMatchReason = (issue, skills) => {
+  const normalizedSkills = skills
+    .map((skill) => String(skill).trim())
+    .filter(Boolean);
+
+  const searchableText = [
+    issue.title,
+    issue.body || '',
+    issue.labels.map((label) => label.name).join(' ')
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const matchedSkills = normalizedSkills.filter((skill) =>
+    searchableText.includes(skill.toLowerCase())
+  );
+
+  if (matchedSkills.length === 0) {
+    return 'Matches your submitted skills based on the issue content and labels.';
+  }
+
+  if (matchedSkills.length === 1) {
+    return `Matches your "${matchedSkills[0]}" skill based on the issue content and labels.`;
+  }
+
+  const topMatches = matchedSkills.slice(0, 2).join('" and "');
+  return `Matches your "${topMatches}" skills based on the issue content and labels.`;
+};
+
+const formatIssue = (issue, explanation, skills) => ({
+  title: issue.title || 'Untitled issue',
+  repo: getRepoName(issue),
+  url: issue.html_url,
+  labels: issue.labels.map((label) => label.name),
+  comments: issue.comments ?? 0,
+  openedAt: issue.created_at || null,
+  confidence: issue.prediction?.confidence ?? 0,
+  explanation: explanation || 'Explanation not available',
+  originalBody: issue.body || 'No description provided',
+  matchReason: buildMatchReason(issue, skills)
+});
+
 const recommendIssues = async (req, res) => {
   try {
     const { skills } = req.body;
@@ -55,14 +110,9 @@ const recommendIssues = async (req, res) => {
     );
 
     // 🔥 6. Final response formatting
-    const finalResults = mlFiltered.map((issue, i) => ({
-      title: issue.title,
-      url: issue.html_url,
-      labels: issue.labels.map(l => l.name),
-      comments: issue.comments,
-      confidence: issue.prediction.confidence,
-      explanation: explanations[i]
-    }));
+    const finalResults = mlFiltered.map((issue, i) =>
+      formatIssue(issue, explanations[i], skills)
+    );
 
     res.json({
       total: finalResults.length,
