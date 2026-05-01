@@ -1,6 +1,7 @@
 const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
 const { generateExplanation } = require('../services/geminiService');
+const { buildMatchReason } = require('../utils/matchReason');
 const INITIAL_GITHUB_FETCH_SIZE = 100;
 const MAX_GITHUB_PAGES = 5;
 const MIN_PRE_ML_CANDIDATES = 25;
@@ -19,35 +20,6 @@ const getRepoName = (issue) => {
   }
 
   return 'unknown repository';
-};
-
-const buildMatchReason = (issue, skills) => {
-  const normalizedSkills = skills
-    .map((skill) => String(skill).trim())
-    .filter(Boolean);
-
-  const searchableText = [
-    issue.title,
-    issue.body || '',
-    issue.labels.map((label) => label.name).join(' ')
-  ]
-    .join(' ')
-    .toLowerCase();
-
-  const matchedSkills = normalizedSkills.filter((skill) =>
-    searchableText.includes(skill.toLowerCase())
-  );
-
-  if (matchedSkills.length === 0) {
-    return 'Matches your submitted skills based on the issue content and labels.';
-  }
-
-  if (matchedSkills.length === 1) {
-    return `Matches your "${matchedSkills[0]}" skill based on the issue content and labels.`;
-  }
-
-  const topMatches = matchedSkills.slice(0, 2).join('" and "');
-  return `Matches your "${topMatches}" skills based on the issue content and labels.`;
 };
 
 const formatIssue = (issue, explanation, skills) => ({
