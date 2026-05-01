@@ -6,6 +6,7 @@ const MAX_GITHUB_PAGES = 5;
 const MIN_PRE_ML_CANDIDATES = 25;
 const MIN_FINAL_RESULTS = 5;
 const RELAXED_BODY_MIN_LENGTH = 20;
+const DEFAULT_MIN_CONFIDENCE = 0;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -90,6 +91,28 @@ const rankByConfidence = (issues) =>
     (left, right) => (right.prediction?.confidence ?? 0) - (left.prediction?.confidence ?? 0)
   );
 
+const normalizeMinConfidence = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return DEFAULT_MIN_CONFIDENCE;
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error('minConfidence must be a valid number');
+  }
+
+  if (numericValue < 0) {
+    return 0;
+  }
+
+  if (numericValue > 1) {
+    return Math.min(numericValue / 100, 1);
+  }
+
+  return numericValue;
+};
+
 const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
   const issuesToPredict = issues.filter((issue) => !predictionCache.has(issue.id));
 
@@ -131,12 +154,20 @@ const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
 
 const recommendIssues = async (req, res) => {
   try {
-    const { skills } = req.body;
+    const { skills, minConfidence } = req.body;
 
     if (!Array.isArray(skills) || skills.length === 0) {
       return res.status(400).json({
         error: 'skills must be a non-empty array'
       });
+    }
+
+    let appliedMinConfidence;
+
+    try {
+      appliedMinConfidence = normalizeMinConfidence(minConfidence);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
     }
 
     // 🔥 1. Fetch issues from GitHub with pagination fallback
@@ -178,7 +209,11 @@ const recommendIssues = async (req, res) => {
         return res.status(503).json({ error: 'ML service unavailable' });
       }
 
-      strictUsableIssues = rankByConfidence(predictionResult.issues || []);
+      strictUsableIssues = rankByConfidence(
+        (predictionResult.issues || []).filter(
+          (issue) => (issue.prediction?.confidence ?? 0) >= appliedMinConfidence
+        )
+      );
 
       const hasEnoughStrongCandidates = strictCandidates.length >= MIN_PRE_ML_CANDIDATES;
       const hasEnoughUsableResults = strictUsableIssues.length >= MIN_FINAL_RESULTS;
@@ -216,7 +251,9 @@ const recommendIssues = async (req, res) => {
       finalCandidateIssues = rankByConfidence(
         mergeUniqueIssues([
           ...strictUsableIssues,
-          ...(relaxedPredictionResult.issues || [])
+          ...(relaxedPredictionResult.issues || []).filter(
+            (issue) => (issue.prediction?.confidence ?? 0) >= appliedMinConfidence
+          )
         ])
       );
 
@@ -243,6 +280,9 @@ const recommendIssues = async (req, res) => {
         pagesFetched,
         totalCount: githubTotalCount,
         incompleteResults
+      },
+      filters: {
+        minConfidence: appliedMinConfidence
       },
       total: finalResults.length,
       issues: finalResults
