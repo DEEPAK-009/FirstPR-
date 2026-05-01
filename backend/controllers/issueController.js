@@ -1,6 +1,6 @@
 const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
-const { generateExplanation } = require('../services/geminiService');
+const { generateExplanation } = require('../services/grokService');
 const { buildMatchReason } = require('../utils/matchReason');
 const INITIAL_GITHUB_FETCH_SIZE = 100;
 const MAX_GITHUB_PAGES = 5;
