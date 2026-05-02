@@ -29,7 +29,7 @@ It also auto-generated the /docs page — the interactive UI — for free.
 
 4. 🦄 Uvicorn (the server)
 FastAPI is just a framework — it needs something to actually run it and listen for requests. That's Uvicorn. When you ran:
-bashuvicorn app:app --reload
+bash.  uvicorn app:app --reload
 Uvicorn started a server on port 8000 and kept watching for code changes (--reload).
 
 5. 🔍 Pydantic (data validation)

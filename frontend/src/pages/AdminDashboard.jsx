@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import api from '../api/axios'
+import { checkBackendHealth } from '../api/issues'
 
 function AdminDashboard() {
   const [status, setStatus] = useState('checking')
@@ -9,7 +9,7 @@ function AdminDashboard() {
 
     const checkBackend = async () => {
       try {
-        const { data } = await api.get('/health')
+        const data = await checkBackendHealth()
 
         if (isActive) {
           setStatus(`connected to backend on port ${data.port}`)

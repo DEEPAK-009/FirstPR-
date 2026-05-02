@@ -29,7 +29,7 @@ Your response should include:
 2. Why it is important
 3. Step-by-step solution approach
 
-Keep it simple.
+Keep it simple and short .
 `;
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
