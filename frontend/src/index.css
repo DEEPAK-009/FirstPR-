@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+html {
+  background: #f2f6fc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family:
+    "Satoshi",
+    "Plus Jakarta Sans",
+    "Segoe UI",
+    sans-serif;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
