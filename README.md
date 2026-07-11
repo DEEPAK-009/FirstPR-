@@ -10,6 +10,8 @@ It combines three parts:
 
 The backend searches GitHub issues based on user-provided skills, sends each issue to a machine learning classifier to estimate whether it is beginner-friendly, and then generates a simple explanation for each shortlisted issue using Gemini.
 
+<img width="1183" height="679" alt="Screenshot 2026-07-11 at 11 21 37 AM" src="https://github.com/user-attachments/assets/188a5277-fb69-4cec-a696-29c7447dbe36" />
+
 ## What Problem This Project Solves
 
 Open source is a great place to learn, but finding a good first issue is hard. Many issues look interesting but are too vague, too large, or too advanced for a beginner.
