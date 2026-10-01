@@ -81,9 +81,15 @@ const renderStructuredExplanation = (text) => {
   })
 }
 
-function RecommendationDrawer({ issue, onClose, onExplanationGenerated }) {
+function RecommendationDrawer({
+  issue,
+  onClose,
+  onExplanationGenerated,
+  isSaved = false,
+  onSaveSuccess
+}) {
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved] = useState(() => Boolean(isSaved || issue?.bookmark_id || issue?.isSaved))
   const [explanation, setExplanation] = useState(
     issue && isRealExplanation(issue.explanation, issue.matchReason)
       ? issue.explanation
@@ -121,6 +127,10 @@ function RecommendationDrawer({ issue, onClose, onExplanationGenerated }) {
   }
 
   useEffect(() => {
+    setSaved(Boolean(isSaved || issue?.bookmark_id || issue?.isSaved))
+  }, [issue?.url, isSaved, issue?.bookmark_id, issue?.isSaved])
+
+  useEffect(() => {
     if (!issue) return
 
     if (isRealExplanation(issue.explanation, issue.matchReason)) {
@@ -147,7 +157,9 @@ function RecommendationDrawer({ issue, onClose, onExplanationGenerated }) {
         explanation: explanation || issue.explanation
       })
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      if (onSaveSuccess && issue?.url) {
+        onSaveSuccess(issue.url)
+      }
     } catch (err) {
       console.error('Failed to save bookmark:', err)
     } finally {
@@ -190,13 +202,35 @@ function RecommendationDrawer({ issue, onClose, onExplanationGenerated }) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || saved}
-                className={`rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                className={`inline-flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
                   saved
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer'
                 } disabled:cursor-not-allowed`}
               >
-                {saving ? 'Saving...' : saved ? 'Saved! ✓' : 'Save for Later'}
+                {saving ? (
+                  <>
+                    <svg className="h-4 w-4 animate-spin text-slate-500" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Saving...
+                  </>
+                ) : saved ? (
+                  <>
+                    <svg className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Saved
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                    Save for Later
+                  </>
+                )}
               </button>
               <a
                 href={issue.url}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { recommendIssues } from '../api/issues'
+import { getBookmarks } from '../api/bookmarks'
 import ConfidenceSlider from '../components/ConfidenceSlider'
 import PaginationControls from '../components/PaginationControls'
 import RecommendationCard from '../components/RecommendationCard'
@@ -53,6 +54,20 @@ function AdminDashboard() {
   const [error, setError] = useState('')
   const [hasSearched, setHasSearched] = useState(() => savedState?.hasSearched ?? (savedState?.recommendations?.length > 0))
   const [currentPage, setCurrentPage] = useState(() => savedState?.currentPage ?? 1)
+  const [savedUrls, setSavedUrls] = useState(() => new Set())
+
+  useEffect(() => {
+    if (user?.id) {
+      getBookmarks()
+        .then((data) => {
+          const urls = new Set((data.bookmarks || []).map((b) => b.url).filter(Boolean))
+          setSavedUrls(urls)
+        })
+        .catch((err) => {
+          console.warn('Could not fetch bookmarks for dashboard sync:', err)
+        })
+    }
+  }, [user?.id])
 
   useEffect(() => {
     if (hasSearched && recommendations.length > 0) {
@@ -354,6 +369,7 @@ function AdminDashboard() {
                         <RecommendationCard
                           key={issue.url}
                           issue={issue}
+                          isSaved={savedUrls.has(issue.url)}
                           onOpen={setSelectedIssue}
                         />
                       ))}
@@ -392,6 +408,10 @@ function AdminDashboard() {
 
       <RecommendationDrawer
         issue={selectedIssue}
+        isSaved={Boolean(selectedIssue && savedUrls.has(selectedIssue.url))}
+        onSaveSuccess={(savedUrl) => {
+          setSavedUrls((prev) => new Set([...prev, savedUrl]))
+        }}
         onClose={() => setSelectedIssue(null)}
         onExplanationGenerated={(issueUrl, explanation) => {
           setRecommendations((prev) =>

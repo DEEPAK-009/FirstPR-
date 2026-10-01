@@ -52,14 +52,24 @@ const getCardPreview = (issue) => {
   return 'Click "View Issue" to inspect details and generate an AI action plan.'
 }
 
-function RecommendationCard({ issue, onOpen }) {
+function RecommendationCard({ issue, onOpen, isSaved = false }) {
   return (
     <article className="flex h-full flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-start">
         <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {issue.repo}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
+              {issue.repo}
+            </p>
+            {isSaved ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/70">
+                <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                Saved
+              </span>
+            ) : null}
+          </div>
           <h3 className="mt-1.5 text-base font-semibold leading-snug text-slate-900 line-clamp-2 break-words sm:text-lg">
             {issue.title}
           </h3>

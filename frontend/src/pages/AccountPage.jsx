@@ -968,6 +968,7 @@ function AccountPage() {
       {/* Recommendation Drawer for inspecting saved issue */}
       <RecommendationDrawer
         issue={selectedIssue}
+        isSaved={true}
         onClose={() => setSelectedIssue(null)}
         onExplanationGenerated={(issueUrl, explanation) => {
           setBookmarks((prev) =>
