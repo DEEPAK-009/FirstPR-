@@ -1,13 +1,19 @@
 const { fetchIssuesFromGitHub } = require("../services/githubService");
 const { getPrediction } = require('../services/mlService');
 const { generateExplanation } = require('../services/grokService');
+const {
+  explanationConcurrency,
+  mlPredictionConcurrency
+} = require('../config/env');
 const { buildMatchReason } = require('../utils/matchReason');
+const { runWithConcurrency } = require('../utils/runWithConcurrency');
 const INITIAL_GITHUB_FETCH_SIZE = 100;
 const MAX_GITHUB_PAGES = 5;
 const MIN_PRE_ML_CANDIDATES = 25;
 const MIN_FINAL_RESULTS = 5;
 const RELAXED_BODY_MIN_LENGTH = 20;
 const DEFAULT_MIN_CONFIDENCE = 0;
+const MAX_EXPLANATION_BATCH = 15;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -92,14 +98,15 @@ const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
     let predictions;
 
     try {
-      predictions = await Promise.all(
-        issuesToPredict.map((issue) =>
+      predictions = await runWithConcurrency(
+        issuesToPredict,
+        mlPredictionConcurrency,
+        (issue) =>
           getPrediction({
             title: issue.title,
             body: issue.body,
             labels: issue.labels.map((label) => label.name).join(' ')
           })
-        )
       );
     } catch (error) {
       if (error.code === 'ML_API_UNAVAILABLE') {
@@ -142,7 +149,7 @@ const recommendIssues = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    // 🔥 1. Fetch issues from GitHub with pagination fallback
+    // Fetch issues from GitHub with pagination fallback.
     const issues = [];
     const seenIssueIds = new Set();
     const predictionCache = new Map();
@@ -201,7 +208,7 @@ const recommendIssues = async (req, res) => {
       page += 1;
     }
 
-    // 🔥 3. Relax the backend quality filter only if strict candidates are still too few
+    // Relax the backend quality filter only if strict candidates are still too few.
     let finalCandidateIssues = strictUsableIssues;
     let relaxedCandidates = [];
     let usedRelaxedFiltering = false;
@@ -232,12 +239,22 @@ const recommendIssues = async (req, res) => {
       usedRelaxedFiltering = relaxedCandidates.length > 0;
     }
 
-    // 🔥 4. Gemini explanations (parallel)
-    const explanations = await Promise.all(
-      finalCandidateIssues.map(issue => generateExplanation(issue))
+    const issuesToExplain = finalCandidateIssues.slice(0, MAX_EXPLANATION_BATCH);
+    const issuesWithoutDynamicExplanation = finalCandidateIssues.slice(MAX_EXPLANATION_BATCH);
+
+    const generatedExplanations = await runWithConcurrency(
+      issuesToExplain,
+      explanationConcurrency,
+      (issue) => generateExplanation(issue)
     );
 
-    // 🔥 5. Final response formatting
+    const explanations = [
+      ...generatedExplanations,
+      ...issuesWithoutDynamicExplanation.map(
+        () => 'Open issue link to review full instructions and context.'
+      )
+    ];
+
     const finalResults = finalCandidateIssues.map((issue, i) =>
       formatIssue(issue, explanations[i], skills)
     );
@@ -266,4 +283,4 @@ const recommendIssues = async (req, res) => {
   }
 };
 
-module.exports = { recommendIssues };
+module.exports = { recommendIssues, normalizeMinConfidence };

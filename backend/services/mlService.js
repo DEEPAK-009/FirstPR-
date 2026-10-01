@@ -1,14 +1,17 @@
 const axios = require('axios');
-
-const ML_API_URL = 'http://localhost:8000/predict';
+const { mlApiUrl } = require('../config/env');
 
 const getPrediction = async (issue) => {
   try {
-    const response = await axios.post(ML_API_URL, {
-      title: issue.title,
-      body: issue.body,
-      labels: issue.labels || ''
-    });
+    const response = await axios.post(
+      mlApiUrl,
+      {
+        title: issue.title,
+        body: issue.body,
+        labels: issue.labels || ''
+      },
+      { timeout: 15000 }
+    );
 
     return {
       ...response.data,

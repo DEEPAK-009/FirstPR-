@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { buildQuery } = require('../utils/queryBuilder');
+const { githubToken } = require('../config/env');
 const GITHUB_BASE_URL = 'https://api.github.com/search/issues';
 const DEFAULT_PER_PAGE = 100;
 
@@ -11,16 +12,21 @@ const fetchIssuesFromGitHub = async (skills, options = {}) => {
       perPage = DEFAULT_PER_PAGE
     } = options;
 
+    const headers = {
+      Accept: 'application/vnd.github+json'
+    };
+
+    if (githubToken) {
+      headers.Authorization = `Bearer ${githubToken}`;
+    }
+
     const response = await axios.get(GITHUB_BASE_URL, {
       params: {
         q: query,
         per_page: perPage,
         page
       },
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`
-      }
+      headers
     });
 
     return {

@@ -1,25 +1,45 @@
 const axios = require('axios');
+require('../config/env');
 
-const GROQ_API_KEY = process.env.GROK_API_KEY || process.env.GROQ_API_KEY;
+const MAX_BODY_CHARACTERS = 1500;
 const DEFAULT_GROQ_MODEL = 'llama-3.1-8b-instant';
-const GROQ_MODEL =
-  process.env.GROQ_MODEL ||
-  process.env.GROK_MODEL ||
-  DEFAULT_GROQ_MODEL;
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
 
+const getGroqApiKey = () =>
+  process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '';
+
+const getGroqModel = () =>
+  process.env.GROQ_MODEL || process.env.GROK_MODEL || DEFAULT_GROQ_MODEL;
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const sanitizeIssueBody = (body) => {
+  if (!body || typeof body !== 'string') {
+    return 'No description provided';
+  }
+
+  const trimmed = body.replace(/\r\n/g, '\n').trim();
+  if (trimmed.length <= MAX_BODY_CHARACTERS) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, MAX_BODY_CHARACTERS)}\n...[description truncated for brevity]`;
+};
 
 const extractText = (responseData) =>
   responseData?.choices?.[0]?.message?.content || null;
 
 const generateExplanation = async (issue) => {
   try {
-    if (!GROQ_API_KEY) {
-      console.error('Groq API key is missing');
+    const apiKey = getGroqApiKey();
+    if (!apiKey) {
+      console.warn('Groq API key is missing (set GROK_API_KEY in environment)');
       return 'Explanation not available';
     }
+
+    const model = getGroqModel();
+    const sanitizedBody = sanitizeIssueBody(issue.body);
 
     const messages = [
       {
@@ -39,7 +59,7 @@ const generateExplanation = async (issue) => {
             text: `Explain this GitHub issue clearly and simply for a beginner developer.
 
 Title: ${issue.title}
-Description: ${issue.body || 'No description provided'}
+Description: ${sanitizedBody}
 
 Include:
 1. What the issue means
@@ -57,7 +77,7 @@ Keep it concise and practical.`
         const response = await axios.post(
           GROQ_ENDPOINT,
           {
-            model: GROQ_MODEL,
+            model,
             messages,
             temperature: 0.3,
             max_tokens: 220
@@ -65,7 +85,7 @@ Keep it concise and practical.`
           {
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${GROQ_API_KEY}`
+              Authorization: `Bearer ${apiKey}`
             },
             timeout: 15000
           }
@@ -80,7 +100,8 @@ Keep it concise and practical.`
           throw error;
         }
 
-        await sleep(1000 * attempt);
+        const delay = status === 429 ? 2000 * attempt : 1000 * attempt;
+        await sleep(delay);
       }
     }
   } catch (error) {

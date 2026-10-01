@@ -34,6 +34,7 @@ function RecommendationDrawer({ issue, onClose }) {
             </button>
 
             <div className="flex items-center gap-3">
+              {/* TODO: Wire this to a saved-issues store in a later pass. */}
               <button
                 type="button"
                 className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"

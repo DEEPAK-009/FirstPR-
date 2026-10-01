@@ -48,6 +48,7 @@ __pycache__/
 
 # ML models
 *.pkl
+!ml-service/model.pkl
 
 # Optional datasets
 issues.csv

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { checkBackendHealth, recommendIssues } from '../api/issues'
+import { useState } from 'react'
+import { recommendIssues } from '../api/issues'
 import ConfidenceSlider from '../components/ConfidenceSlider'
 import PaginationControls from '../components/PaginationControls'
 import RecommendationCard from '../components/RecommendationCard'
@@ -10,7 +10,6 @@ import SkillsInput from '../components/SkillsInput'
 const ITEMS_PER_PAGE = 10
 
 function AdminDashboard() {
-  const [status, setStatus] = useState('checking')
   const [skills, setSkills] = useState(['TypeScript', 'React'])
   const [skillInput, setSkillInput] = useState('')
   const [minConfidence, setMinConfidence] = useState(40)
@@ -21,30 +20,6 @@ function AdminDashboard() {
   const [error, setError] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-
-  useEffect(() => {
-    let isActive = true
-
-    const checkBackend = async () => {
-      try {
-        const data = await checkBackendHealth()
-
-        if (isActive) {
-          setStatus(`connected to backend on port ${data.port}`)
-        }
-      } catch {
-        if (isActive) {
-          setStatus('backend unavailable')
-        }
-      }
-    }
-
-    checkBackend()
-
-    return () => {
-      isActive = false
-    }
-  }, [])
 
   const addSkills = (rawValue) => {
     const nextSkills = rawValue
@@ -157,10 +132,10 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-2 self-start rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 sm:self-auto">
+            {/* <div className="inline-flex items-center gap-2 self-start rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 sm:self-auto">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Backend status: {status}
-            </div>
+            </div> */}
           </header>
 
           <div className="grid min-h-[calc(100vh-9rem)] lg:grid-cols-[360px_minmax(0,1fr)]">
@@ -189,18 +164,14 @@ function AdminDashboard() {
                   onChange={setMinConfidence}
                 />
 
-                <section className="space-y-4">
+                <section className="space-y-3">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-900">
                       Complexity
                     </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Targeting beginner-friendly entry points from the current
-                      recommendation pipeline.
-                    </p>
                   </div>
 
-                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-sm font-semibold text-sky-700">
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-700">
                     Good First Issues Only
                   </div>
                 </section>
@@ -215,11 +186,11 @@ function AdminDashboard() {
                   type="button"
                   onClick={handleSearch}
                   disabled={loading}
-                  className="flex h-16 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-pink-400 px-5 text-lg font-semibold text-white shadow-lg shadow-sky-200 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-pink-400 px-5 text-base font-semibold text-white shadow-lg shadow-sky-200 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    className="h-5 w-5"
+                    className="h-4.5 w-4.5"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
@@ -237,9 +208,9 @@ function AdminDashboard() {
                   </p>
                   <div className="mt-3 flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-semibold text-slate-900">Groq</p>
+                      <p className="text-lg font-semibold text-slate-900">Gemini</p>
                       <p className="text-sm text-slate-500">
-                        Llama 3.1 issue explanations
+                        issue explanations
                       </p>
                     </div>
                     <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">
