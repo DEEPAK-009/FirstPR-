@@ -3,6 +3,7 @@ const cors = require('cors');
 
 const { port } = require('./config/env');
 const issueRoutes = require('./routes/issueRoutes');
+const bookmarkRoutes = require('./routes/bookmarkRoutes');
 
 const app = express();
 
@@ -18,5 +19,6 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/issues', issueRoutes);
+app.use('/api/bookmarks', bookmarkRoutes);
 
 module.exports = app;

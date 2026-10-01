@@ -1,6 +1,25 @@
+import { useState } from 'react'
+import { saveBookmark } from '../api/bookmarks'
+
 function RecommendationDrawer({ issue, onClose }) {
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
   if (!issue) {
     return null
+  }
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      await saveBookmark(issue)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      console.error('Failed to save bookmark:', err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -34,12 +53,17 @@ function RecommendationDrawer({ issue, onClose }) {
             </button>
 
             <div className="flex items-center gap-3">
-              {/* TODO: Wire this to a saved-issues store in a later pass. */}
               <button
                 type="button"
-                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                onClick={handleSave}
+                disabled={saving || saved}
+                className={`rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                  saved
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                } disabled:cursor-not-allowed`}
               >
-                Save for Later
+                {saving ? 'Saving...' : saved ? 'Saved! ✓' : 'Save for Later'}
               </button>
               <a
                 href={issue.url}

@@ -28,5 +28,6 @@ module.exports = {
   githubToken: process.env.GITHUB_TOKEN || '',
   mlApiUrl: process.env.ML_API_URL || 'http://localhost:8000/predict',
   mlPredictionConcurrency: toPositiveInteger(process.env.ML_PREDICTION_CONCURRENCY, 8),
-  explanationConcurrency: toPositiveInteger(process.env.EXPLANATION_CONCURRENCY, 3)
+  explanationConcurrency: toPositiveInteger(process.env.EXPLANATION_CONCURRENCY, 3),
+  databaseUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || ''
 };
