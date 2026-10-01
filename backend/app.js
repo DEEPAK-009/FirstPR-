@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
+app.set('trust proxy', 1);
 app.use(cors()); // we can allow it just for a specific url too
 app.use(express.json());
 

@@ -513,9 +513,11 @@ function AccountPage() {
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                   {bookmark.repo || 'unknown repo'}
                                 </span>
-                                {bookmark.confidence ? (
+                                {bookmark.confidence !== undefined && bookmark.confidence !== null ? (
                                   <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-bold text-sky-700 border border-sky-200/60">
-                                    {Math.round(bookmark.confidence)}% Match
+                                    {bookmark.confidence > 1
+                                      ? Math.round(bookmark.confidence)
+                                      : Math.round(bookmark.confidence * 100)}% Match
                                   </span>
                                 ) : null}
                               </div>

@@ -124,11 +124,10 @@ const githubLogin = (req, res) => {
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
 
   // Callback URL must match one of the registered URIs in GitHub OAuth App settings
+  const proto = req.headers['x-forwarded-proto'] || (isLocal ? 'http' : 'https');
   const redirectUri =
     process.env.GITHUB_CALLBACK_URL ||
-    (isLocal
-      ? `http://${host}/api/auth/github/callback`
-      : `${req.protocol}://${host}/api/auth/github/callback`);
+    `${proto}://${host}/api/auth/github/callback`;
 
   const returnTo = req.query.returnTo || (isLocal ? 'http://localhost:3000' : frontendUrl);
   const state = Buffer.from(JSON.stringify({ returnTo, redirectUri })).toString('base64');
