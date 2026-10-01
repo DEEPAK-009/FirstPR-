@@ -60,27 +60,27 @@ function RecommendationDrawer({ issue, onClose }) {
           </div>
         </div>
 
-        <div className="space-y-8 px-6 py-8">
+        <div className="space-y-6 px-6 py-6">
           <div>
-            <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 break-words sm:text-2xl">
               {issue.title}
             </h2>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-lg text-slate-500">
+            <div className="mt-3 flex flex-wrap items-center gap-2.5 text-sm text-slate-500">
               <span className="font-semibold text-slate-700">{issue.repo}</span>
               <span className="text-slate-300">•</span>
-              <span>
-                {Math.round((issue.confidence || 0) * 100)}% confidence
+              <span className="font-medium text-sky-600">
+                {Math.round((issue.confidence || 0) * 100)}% match
               </span>
             </div>
           </div>
 
-          <section className="rounded-[2rem] border border-sky-100 bg-sky-50/80 p-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-500">
-              AI Explanation
+          <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-sky-600">
+              AI Explanation & Roadmap
             </p>
-            <p className="mt-4 whitespace-pre-line text-lg leading-9 text-slate-700">
+            <div className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-700 sm:text-base font-normal">
               {issue.explanation}
-            </p>
+            </div>
           </section>
 
           <section>

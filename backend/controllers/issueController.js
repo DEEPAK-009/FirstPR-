@@ -13,7 +13,7 @@ const MIN_PRE_ML_CANDIDATES = 25;
 const MIN_FINAL_RESULTS = 5;
 const RELAXED_BODY_MIN_LENGTH = 20;
 const DEFAULT_MIN_CONFIDENCE = 0;
-const MAX_EXPLANATION_BATCH = 15;
+const MAX_EXPLANATION_BATCH = 30;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -251,7 +251,7 @@ const recommendIssues = async (req, res) => {
     const explanations = [
       ...generatedExplanations,
       ...issuesWithoutDynamicExplanation.map(
-        () => 'Open issue link to review full instructions and context.'
+        (issue) => `${buildMatchReason(issue, skills)} Click 'Review AI Insights' or view on GitHub for details.`
       )
     ];
 

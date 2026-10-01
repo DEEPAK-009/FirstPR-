@@ -31,41 +31,39 @@ const formatRelativeTime = (dateString) => {
 }
 
 const previewText = (text) => {
-  if (!text) {
-    return 'AI explanation unavailable for this issue.'
+  if (!text || text === 'Explanation not available') {
+    return 'Detailed breakdown and approach steps available in AI insights.'
   }
 
   const cleanedText = text
     .replace(/\*\*/g, '')
+    .replace(/###/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 
-  return cleanedText.length > 190
-    ? `${cleanedText.slice(0, 190).trim()}...`
+  return cleanedText.length > 210
+    ? `${cleanedText.slice(0, 210).trim()}...`
     : cleanedText
 }
 
 function RecommendationCard({ issue, onOpen }) {
   return (
-    <article className="flex h-full flex-col rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_144px] sm:items-start">
+    <article className="flex h-full flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-start">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-400">
+          <p className="truncate text-xs font-semibold uppercase tracking-wider text-slate-400">
             {issue.repo}
           </p>
-          <h3
-            className="mt-2 max-w-full break-all text-xl font-semibold leading-snug text-slate-700 sm:pr-4 sm:text-2xl"
-            style={{ overflowWrap: 'anywhere' }}
-          >
+          <h3 className="mt-1.5 text-base font-semibold leading-snug text-slate-900 line-clamp-2 break-words sm:text-lg">
             {issue.title}
           </h3>
         </div>
 
         <div className="w-full sm:justify-self-end sm:text-right">
-          <div className="text-sm font-semibold text-sky-600">
+          <div className="text-sm font-bold text-sky-600">
             <span>{Math.round((issue.confidence || 0) * 100)}% Match</span>
           </div>
-          <div className="mt-3 h-2 rounded-full bg-slate-100 sm:ml-auto sm:max-w-[140px]">
+          <div className="mt-2 h-1.5 rounded-full bg-slate-100 sm:ml-auto sm:max-w-[120px]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-pink-400"
               style={{ width: `${Math.round((issue.confidence || 0) * 100)}%` }}
@@ -74,18 +72,18 @@ function RecommendationCard({ issue, onOpen }) {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-3.5 flex flex-wrap gap-1.5">
         {issue.labels.slice(0, 3).map((label) => (
           <span
             key={label}
-            className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+            className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
           >
             {label}
           </span>
         ))}
       </div>
 
-      <p className="mt-5 text-base leading-8 text-slate-600">
+      <p className="mt-4 text-sm leading-relaxed text-slate-600 line-clamp-3">
         {previewText(issue.explanation)}
       </p>
 

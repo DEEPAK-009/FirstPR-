@@ -2,15 +2,21 @@ const axios = require('axios');
 require('../config/env');
 
 const MAX_BODY_CHARACTERS = 1500;
-const DEFAULT_GROQ_MODEL = 'llama-3.1-8b-instant';
+const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-20b';
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
 
 const getGroqApiKey = () =>
   process.env.GROK_API_KEY || process.env.GROQ_API_KEY || '';
 
-const getGroqModel = () =>
-  process.env.GROQ_MODEL || process.env.GROK_MODEL || DEFAULT_GROQ_MODEL;
+const getGroqModel = () => {
+  const configured = (process.env.GROQ_MODEL || process.env.GROK_MODEL || '').trim();
+  // Groq deprecated llama-3.1-8b-instant; safely fall back to fast openai/gpt-oss-20b
+  if (!configured || configured.includes('llama-3.1')) {
+    return DEFAULT_GROQ_MODEL;
+  }
+  return configured;
+};
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -38,7 +44,7 @@ const generateExplanation = async (issue) => {
       return 'Explanation not available';
     }
 
-    const model = getGroqModel();
+    let model = getGroqModel();
     const sanitizedBody = sanitizeIssueBody(issue.body);
 
     const messages = [
@@ -95,6 +101,12 @@ Keep it concise and practical.`
         return text || 'No explanation generated';
       } catch (error) {
         const status = error.response?.status;
+
+        if (status === 404 && model !== DEFAULT_GROQ_MODEL) {
+          console.warn(`Groq model "${model}" not found, falling back to "${DEFAULT_GROQ_MODEL}"`);
+          model = DEFAULT_GROQ_MODEL;
+          continue;
+        }
 
         if (!RETRYABLE_STATUS_CODES.has(status) || attempt === 3) {
           throw error;
