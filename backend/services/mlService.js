@@ -6,8 +6,8 @@ const getPrediction = async (issue) => {
     const response = await axios.post(
       mlApiUrl,
       {
-        title: issue.title,
-        body: issue.body,
+        title: issue.title || '',
+        body: issue.body || '',
         labels: issue.labels || ''
       },
       { timeout: 15000 }
@@ -19,7 +19,7 @@ const getPrediction = async (issue) => {
     };
 
   } catch (error) {
-    console.error("ML API Error:", error.response?.data || error.message);
+    console.error("ML API Error:", error.response?.data || error.message, `(Target URL: ${mlApiUrl})`);
 
     const serviceError = new Error('ML service unavailable');
     serviceError.code = 'ML_API_UNAVAILABLE';

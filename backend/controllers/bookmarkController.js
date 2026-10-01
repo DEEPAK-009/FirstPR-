@@ -30,6 +30,8 @@ const getIssueId = (issue) => {
 const saveBookmark = async (req, res) => {
   try {
     const issue = req.body;
+    const userId = req.user?.id || null;
+
     if (!issue || !issue.title || !issue.url) {
       return res.status(400).json({ error: 'Issue title and URL are required' });
     }
@@ -65,14 +67,23 @@ const saveBookmark = async (req, res) => {
     );
 
     // 2. Insert into `bookmarks`
-    await query(
-      `INSERT INTO bookmarks (github_issue_id, status, updated_at)
-       VALUES ($1, 'SAVED', NOW())
-       ON CONFLICT (github_issue_id) DO UPDATE SET
-         status = 'SAVED',
-         updated_at = NOW()`,
-      [issueId.toString()]
-    );
+    if (userId) {
+      await query(
+        `INSERT INTO bookmarks (github_issue_id, user_id, status, updated_at)
+         VALUES ($1, $2, 'SAVED', NOW())
+         ON CONFLICT (user_id, github_issue_id) DO UPDATE SET
+           status = 'SAVED',
+           updated_at = NOW()`,
+        [issueId.toString(), userId]
+      );
+    } else {
+      await query(
+        `INSERT INTO bookmarks (github_issue_id, status, updated_at)
+         VALUES ($1, 'SAVED', NOW())
+         ON CONFLICT DO NOTHING`,
+        [issueId.toString()]
+      );
+    }
 
     return res.status(201).json({
       success: true,
@@ -87,8 +98,8 @@ const saveBookmark = async (req, res) => {
 
 const getBookmarks = async (req, res) => {
   try {
-    const result = await query(
-      `SELECT 
+    const userId = req.user?.id;
+    let queryText = `SELECT 
         b.id as bookmark_id,
         b.status,
         b.notes,
@@ -102,11 +113,21 @@ const getBookmarks = async (req, res) => {
         i.opened_at as "openedAt",
         i.confidence_score as confidence,
         i.ai_explanation as explanation,
+        i.original_body as "originalBody",
         i.match_reason as "matchReason"
        FROM bookmarks b
-       JOIN issues i ON b.github_issue_id = i.github_issue_id
-       ORDER BY b.created_at DESC`
-    );
+       JOIN issues i ON b.github_issue_id = i.github_issue_id`;
+
+    const params = [];
+    if (userId) {
+      queryText += ' WHERE b.user_id = $1';
+      params.push(userId);
+    } else {
+      queryText += ' WHERE b.user_id IS NULL';
+    }
+    queryText += ' ORDER BY b.created_at DESC';
+
+    const result = await query(queryText, params);
 
     return res.json({
       total: result.rows.length,
@@ -121,14 +142,20 @@ const getBookmarks = async (req, res) => {
 const removeBookmark = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
+
     if (!id) {
       return res.status(400).json({ error: 'Issue ID is required' });
     }
 
-    const result = await query(
-      'DELETE FROM bookmarks WHERE github_issue_id = $1',
-      [id]
-    );
+    let queryText = 'DELETE FROM bookmarks WHERE github_issue_id = $1';
+    const params = [id];
+    if (userId) {
+      queryText += ' AND user_id = $2';
+      params.push(userId);
+    }
+
+    const result = await query(queryText, params);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Bookmark not found' });
@@ -145,21 +172,26 @@ const updateBookmarkStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
+    const userId = req.user?.id;
 
     const validStatuses = ['SAVED', 'IN_PROGRESS', 'PR_SUBMITTED', 'MERGED'];
     if (status && !validStatuses.includes(status)) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
 
-    const result = await query(
-      `UPDATE bookmarks
+    let queryText = `UPDATE bookmarks
        SET status = COALESCE($1, status),
            notes = COALESCE($2, notes),
            updated_at = NOW()
-       WHERE github_issue_id = $3
-       RETURNING *`,
-      [status, notes, id]
-    );
+       WHERE github_issue_id = $3`;
+    const params = [status, notes, id];
+    if (userId) {
+      queryText += ' AND user_id = $4';
+      params.push(userId);
+    }
+    queryText += ' RETURNING *';
+
+    const result = await query(queryText, params);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Bookmark not found' });

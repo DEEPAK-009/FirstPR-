@@ -29,5 +29,9 @@ module.exports = {
   mlApiUrl: process.env.ML_API_URL || 'http://localhost:8000/predict',
   mlPredictionConcurrency: toPositiveInteger(process.env.ML_PREDICTION_CONCURRENCY, 8),
   explanationConcurrency: toPositiveInteger(process.env.EXPLANATION_CONCURRENCY, 3),
-  databaseUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || ''
+  databaseUrl: process.env.DATABASE_URL || process.env.POSTGRES_URL || '',
+  githubClientId: process.env.GITHUB_CLIENT_ID || '',
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+  jwtSecret: process.env.JWT_SECRET || 'firstpr-super-secret-jwt-key-2026',
+  frontendUrl: (process.env.FRONTEND_URL || 'https://first-pr-ochre.vercel.app').replace(/\/+$/, '')
 };

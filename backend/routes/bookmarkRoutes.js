@@ -6,7 +6,12 @@ const {
   updateBookmarkStatus
 } = require('../controllers/bookmarkController');
 
+const { requireAuth } = require('../middleware/auth');
+
 const router = express.Router();
+
+// Require authentication for all bookmark routes
+router.use(requireAuth);
 
 router.get('/', getBookmarks);
 router.post('/', saveBookmark);

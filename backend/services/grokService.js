@@ -1,7 +1,7 @@
 const axios = require('axios');
 require('../config/env');
 
-const MAX_BODY_CHARACTERS = 1500;
+const MAX_BODY_CHARACTERS = 3000;
 const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-20b';
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
@@ -50,31 +50,37 @@ const generateExplanation = async (issue) => {
     const messages = [
       {
         role: 'system',
-        content: [
-          {
-            type: 'text',
-            text: 'You explain GitHub issues to beginner developers in a short, practical way. Reply in 2 short paragraphs max.'
-          }
-        ]
+        content:
+          'You are an expert open-source mentor helping beginner contributors. ' +
+          'Analyze GitHub issues and produce a structured, high-signal guide with a short summary, key technical bullet points, and numbered action steps. ' +
+          'Always ensure your explanation is completely finished and never cut off mid-thought. ' +
+          'Never output a dense wall of text. Avoid generic filler advice like "clone the repository" or "open the project". ' +
+          'If the issue already contains specific files, classes, error logs, or maintainer directions, preserve and highlight them directly in the steps.'
       },
       {
         role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Explain this GitHub issue clearly and simply for a beginner developer.
+        content: `Explain and structure this GitHub issue for a contributor:
 
 Title: ${issue.title}
-Description: ${sanitizedBody}
+Labels: ${issue.labels ? (Array.isArray(issue.labels) ? issue.labels.map((l) => l.name || l).join(', ') : issue.labels) : 'None'}
+Description:
+${sanitizedBody}
 
-Include:
-1. What the issue means
-2. Why it matters
-3. A short step-by-step way to approach it
+Format your response strictly using this structure:
 
-Keep it concise and practical.`
-          }
-        ]
+**What this issue is about:**
+[1-2 clear sentences in plain English explaining the core problem and why it matters]
+
+**Key Details:**
+- [Bullet point with affected component, file, or root cause]
+- [Bullet point with expected vs actual behavior]
+
+**How to solve it:**
+1. [Specific, actionable step preserving any files/code mentioned by the maintainer]
+2. [Next actionable step]
+3. [Testing or verification step]
+
+Keep each step concise and actionable, and ensure every numbered step is fully formulated and complete.`
       }
     ];
 
@@ -85,15 +91,15 @@ Keep it concise and practical.`
           {
             model,
             messages,
-            temperature: 0.3,
-            max_tokens: 220
+            temperature: 0.2,
+            max_tokens: 1500
           },
           {
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${apiKey}`
             },
-            timeout: 15000
+            timeout: 30000
           }
         );
 

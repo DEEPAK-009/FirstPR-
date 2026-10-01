@@ -20,3 +20,13 @@ export const recommendIssues = async ({
 
   return data
 }
+
+export const explainIssue = async ({ title, body, labels }) => {
+  const { data } = await api.post('/issues/explain', {
+    title,
+    body,
+    labels
+  })
+
+  return data
+}

@@ -1,3 +1,5 @@
+import { isRealExplanation } from '../utils/explanation'
+
 const formatRelativeTime = (dateString) => {
   if (!dateString) {
     return 'Unknown date'
@@ -30,20 +32,24 @@ const formatRelativeTime = (dateString) => {
   return `${Math.round(diff / week)}w ago`
 }
 
-const previewText = (text) => {
-  if (!text || text === 'Explanation not available') {
-    return 'Detailed breakdown and approach steps available in AI insights.'
+const getCardPreview = (issue) => {
+  if (isRealExplanation(issue.explanation, issue.matchReason)) {
+    const cleanedText = issue.explanation
+      .replace(/\*\*/g, '')
+      .replace(/###/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    return cleanedText.length > 210
+      ? `${cleanedText.slice(0, 210).trim()}...`
+      : cleanedText
   }
 
-  const cleanedText = text
-    .replace(/\*\*/g, '')
-    .replace(/###/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  if (issue.matchReason) {
+    return issue.matchReason
+  }
 
-  return cleanedText.length > 210
-    ? `${cleanedText.slice(0, 210).trim()}...`
-    : cleanedText
+  return 'Click "View Issue" to inspect details and generate an AI action plan.'
 }
 
 function RecommendationCard({ issue, onOpen }) {
@@ -84,7 +90,7 @@ function RecommendationCard({ issue, onOpen }) {
       </div>
 
       <p className="mt-4 text-sm leading-relaxed text-slate-600 line-clamp-3">
-        {previewText(issue.explanation)}
+        {getCardPreview(issue)}
       </p>
 
       <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-5">
@@ -106,9 +112,11 @@ function RecommendationCard({ issue, onOpen }) {
         <button
           type="button"
           onClick={() => onOpen(issue)}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-sky-600 transition hover:text-sky-700"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-sky-600 transition hover:text-sky-700 cursor-pointer"
         >
-          Review AI Insights
+          {isRealExplanation(issue.explanation, issue.matchReason)
+            ? 'Review AI Insights'
+            : 'View Issue'}
           <svg
             viewBox="0 0 24 24"
             className="h-4 w-4"

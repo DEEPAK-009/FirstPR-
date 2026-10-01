@@ -7,13 +7,18 @@ const {
 } = require('../config/env');
 const { buildMatchReason } = require('../utils/matchReason');
 const { runWithConcurrency } = require('../utils/runWithConcurrency');
+const {
+  buildCacheKey,
+  getCachedSearch,
+  setCachedSearch
+} = require('../services/cacheService');
 const INITIAL_GITHUB_FETCH_SIZE = 100;
 const MAX_GITHUB_PAGES = 5;
 const MIN_PRE_ML_CANDIDATES = 25;
 const MIN_FINAL_RESULTS = 5;
 const RELAXED_BODY_MIN_LENGTH = 20;
 const DEFAULT_MIN_CONFIDENCE = 0;
-const MAX_EXPLANATION_BATCH = 30;
+const MAX_EXPLANATION_BATCH = 6;
 
 const getRepoName = (issue) => {
   if (issue.repository_url?.includes('/repos/')) {
@@ -36,7 +41,7 @@ const formatIssue = (issue, explanation, skills) => ({
   comments: issue.comments ?? 0,
   openedAt: issue.created_at || null,
   confidence: issue.prediction?.confidence ?? 0,
-  explanation: explanation || 'Explanation not available',
+  explanation: explanation || null,
   originalBody: issue.body || 'No description provided',
   matchReason: buildMatchReason(issue, skills)
 });
@@ -149,6 +154,16 @@ const recommendIssues = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
+    const cacheKey = buildCacheKey(skills, appliedMinConfidence);
+    const cachedResponse = await getCachedSearch(cacheKey);
+
+    if (cachedResponse) {
+      return res.json({
+        ...cachedResponse,
+        cached: true
+      });
+    }
+
     // Fetch issues from GitHub with pagination fallback.
     const issues = [];
     const seenIssueIds = new Set();
@@ -239,27 +254,11 @@ const recommendIssues = async (req, res) => {
       usedRelaxedFiltering = relaxedCandidates.length > 0;
     }
 
-    const issuesToExplain = finalCandidateIssues.slice(0, MAX_EXPLANATION_BATCH);
-    const issuesWithoutDynamicExplanation = finalCandidateIssues.slice(MAX_EXPLANATION_BATCH);
-
-    const generatedExplanations = await runWithConcurrency(
-      issuesToExplain,
-      explanationConcurrency,
-      (issue) => generateExplanation(issue)
+    const finalResults = finalCandidateIssues.map((issue) =>
+      formatIssue(issue, null, skills)
     );
 
-    const explanations = [
-      ...generatedExplanations,
-      ...issuesWithoutDynamicExplanation.map(
-        (issue) => `${buildMatchReason(issue, skills)} Click 'Review AI Insights' or view on GitHub for details.`
-      )
-    ];
-
-    const finalResults = finalCandidateIssues.map((issue, i) =>
-      formatIssue(issue, explanations[i], skills)
-    );
-
-    res.json({
+    const responsePayload = {
       github: {
         fetched: issues.length,
         strongCandidates: strictCandidates.length,
@@ -275,7 +274,11 @@ const recommendIssues = async (req, res) => {
       },
       total: finalResults.length,
       issues: finalResults
-    });
+    };
+
+    await setCachedSearch(cacheKey, responsePayload);
+
+    res.json(responsePayload);
 
   } catch (error) {
     console.error("Controller Error:", error);
@@ -283,4 +286,25 @@ const recommendIssues = async (req, res) => {
   }
 };
 
-module.exports = { recommendIssues, normalizeMinConfidence };
+const explainIssue = async (req, res) => {
+  try {
+    const { title, body, labels } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Issue title is required' });
+    }
+
+    const explanation = await generateExplanation({
+      title,
+      body: body || '',
+      labels: labels || []
+    });
+
+    res.json({ explanation });
+  } catch (error) {
+    console.error("Explain Issue Error:", error);
+    res.status(500).json({ error: "Failed to generate explanation" });
+  }
+};
+
+module.exports = { recommendIssues, explainIssue, normalizeMinConfidence };
