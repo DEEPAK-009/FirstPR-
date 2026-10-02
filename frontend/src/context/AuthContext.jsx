@@ -20,6 +20,9 @@ export function AuthProvider({ children }) {
 
     let activeToken = token
     if (urlToken) {
+      try {
+        sessionStorage.clear()
+      } catch (e) {}
       localStorage.setItem('token', urlToken)
       setToken(urlToken)
       activeToken = urlToken
@@ -40,6 +43,9 @@ export function AuthProvider({ children }) {
       } catch (err) {
         console.warn('Session expired or invalid token:', err.message)
         localStorage.removeItem('token')
+        try {
+          sessionStorage.clear()
+        } catch (e) {}
         setToken(null)
         setUser(null)
       } finally {
@@ -51,6 +57,9 @@ export function AuthProvider({ children }) {
   }, [token])
 
   const login = async (email, password) => {
+    try {
+      sessionStorage.clear()
+    } catch (e) {}
     const response = await api.post('/auth/login', { email, password })
     const { token: newToken, user: newUser } = response.data
     localStorage.setItem('token', newToken)
@@ -60,6 +69,9 @@ export function AuthProvider({ children }) {
   }
 
   const signup = async (name, email, password) => {
+    try {
+      sessionStorage.clear()
+    } catch (e) {}
     const response = await api.post('/auth/signup', { name, email, password })
     const { token: newToken, user: newUser } = response.data
     localStorage.setItem('token', newToken)
@@ -75,6 +87,9 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('token')
+    try {
+      sessionStorage.clear()
+    } catch (e) {}
     setToken(null)
     setUser(null)
   }

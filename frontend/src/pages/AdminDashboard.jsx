@@ -56,6 +56,18 @@ function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState(() => savedState?.currentPage ?? 1)
   const [savedUrls, setSavedUrls] = useState(() => new Set())
 
+  // Reset search results if user logs out or session is unauthenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setRecommendations([])
+      setHasSearched(false)
+      setSelectedIssue(null)
+      try {
+        sessionStorage.clear()
+      } catch (e) {}
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
     if (user?.id) {
       getBookmarks()
@@ -430,8 +442,11 @@ function AdminDashboard() {
         onClose={() => setShowLogoutModal(false)}
         onConfirm={() => {
           setShowLogoutModal(false)
+          setRecommendations([])
+          setHasSearched(false)
+          setSelectedIssue(null)
           try {
-            sessionStorage.removeItem(storageKey)
+            sessionStorage.clear()
           } catch (e) {}
           logout()
           navigate('/')
