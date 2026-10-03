@@ -184,9 +184,9 @@ function AdminDashboard() {
 
   return (
     <>
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_36%),linear-gradient(180deg,_#f8fbff_0%,_#f2f6fc_100%)] px-4 py-5 text-slate-900 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1600px] overflow-hidden rounded-[2rem] border border-slate-200 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
-          <header className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <main className="min-h-screen lg:h-screen lg:overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_36%),linear-gradient(180deg,_#f8fbff_0%,_#f2f6fc_100%)] p-3 sm:p-5 flex flex-col text-slate-900">
+        <div className="mx-auto flex h-full w-full max-w-[1600px] flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
+          <header className="flex-shrink-0 flex flex-col gap-4 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between bg-white/80 backdrop-blur">
             <Link to="/" className="flex items-center gap-4 transition hover:opacity-90">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 via-indigo-500 to-pink-400 shadow-lg shadow-sky-200">
                 <svg
@@ -270,9 +270,9 @@ function AdminDashboard() {
             </div>
           </header>
 
-          <div className="grid min-h-[calc(100vh-9rem)] lg:grid-cols-[360px_minmax(0,1fr)]">
-            <aside className="border-b border-slate-200 bg-slate-50/90 px-6 py-8 lg:border-b-0 lg:border-r">
-              <div className="space-y-8 lg:sticky lg:top-8">
+          <div className="grid flex-1 min-h-0 lg:grid-cols-[380px_minmax(0,1fr)] lg:overflow-hidden">
+            <aside className="border-b border-slate-200 bg-slate-50/90 p-6 lg:border-b-0 lg:border-r lg:h-full lg:overflow-y-auto">
+              <div className="space-y-6">
                 <SkillsInput
                   skills={skills}
                   inputValue={skillInput}
@@ -353,8 +353,8 @@ function AdminDashboard() {
               </div>
             </aside>
 
-            <section className="px-6 py-8">
-              <div className="space-y-6">
+            <section className="p-6 lg:h-full lg:overflow-y-auto lg:p-8">
+              <div className="space-y-6 pb-8">
                 <ResultsHeader
                   total={sortedRecommendations.length}
                   sortBy={sortBy}
