@@ -10,7 +10,7 @@ const getPrediction = async (issue) => {
         body: issue.body || '',
         labels: issue.labels || ''
       },
-      { timeout: 15000 }
+      { timeout: 10000 }
     );
 
     return {
@@ -19,9 +19,7 @@ const getPrediction = async (issue) => {
     };
 
   } catch (error) {
-    console.error("ML API Error:", error.response?.data || error.message, `(Target URL: ${mlApiUrl})`);
-
-    const serviceError = new Error('ML service unavailable');
+    const serviceError = new Error(`ML API error: ${error.response?.data?.detail || error.message}`);
     serviceError.code = 'ML_API_UNAVAILABLE';
     throw serviceError;
   }

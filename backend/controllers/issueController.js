@@ -96,11 +96,49 @@ const normalizeMinConfidence = (value) => {
   return numericValue;
 };
 
+const calculateHeuristicPrediction = (issue) => {
+  const labelNames = (issue.labels || []).map((l) =>
+    (typeof l === 'string' ? l : l.name || '').toLowerCase()
+  );
+  const labelString = labelNames.join(' ');
+  const title = (issue.title || '').toLowerCase();
+
+  let score = 0.52; // baseline confidence for GitHub candidates
+
+  // Strong beginner indicators in labels
+  if (labelString.includes('good first issue') || labelString.includes('good-first-issue')) score += 0.25;
+  if (labelString.includes('beginner') || labelString.includes('first-timers-only')) score += 0.20;
+  if (labelString.includes('easy') || labelString.includes('starter') || labelString.includes('up-for-grabs')) score += 0.15;
+  if (labelString.includes('help wanted') || labelString.includes('documentation') || labelString.includes('docs')) score += 0.10;
+
+  // Well-specified descriptions (optimal length for beginners)
+  const bodyLength = (issue.body || '').length;
+  if (bodyLength >= 80 && bodyLength <= 3000) score += 0.05;
+
+  // Low contention (easy to claim)
+  const comments = issue.comments ?? 0;
+  if (comments <= 2) score += 0.05;
+  if (comments > 15) score -= 0.12;
+
+  // Negative indicators (heavy architecture / complex)
+  if (title.includes('refactor') || title.includes('redesign') || title.includes('vulnerability')) score -= 0.15;
+
+  const confidence = Math.min(0.95, Math.max(0.35, Math.round(score * 100) / 100));
+
+  return {
+    prediction: confidence >= 0.45 ? 1 : 0,
+    is_beginner_friendly: confidence >= 0.45,
+    confidence,
+    fallback: true
+  };
+};
+
 const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
   const issuesToPredict = issues.filter((issue) => !predictionCache.has(issue.id));
 
   if (issuesToPredict.length > 0) {
     let predictions;
+    let fallbackNeeded = false;
 
     try {
       predictions = await runWithConcurrency(
@@ -110,15 +148,20 @@ const predictBeginnerFriendlyIssues = async (issues, predictionCache) => {
           getPrediction({
             title: issue.title,
             body: issue.body,
-            labels: issue.labels.map((label) => label.name).join(' ')
+            labels: (issue.labels || []).map((label) => (typeof label === 'string' ? label : label.name || '')).join(' ')
           })
       );
     } catch (error) {
       if (error.code === 'ML_API_UNAVAILABLE') {
-        return { error };
+        console.warn(`[ML Service Warning] ML API unavailable (${error.message}). Activating intelligent heuristic fallback.`);
+        fallbackNeeded = true;
+      } else {
+        throw error;
       }
+    }
 
-      throw error;
+    if (fallbackNeeded) {
+      predictions = issuesToPredict.map(calculateHeuristicPrediction);
     }
 
     issuesToPredict.forEach((issue, index) => {
@@ -199,10 +242,6 @@ const recommendIssues = async (req, res) => {
         predictionCache
       );
 
-      if (predictionResult.error?.code === 'ML_API_UNAVAILABLE') {
-        return res.status(503).json({ error: 'ML service unavailable' });
-      }
-
       strictUsableIssues = rankByConfidence(
         (predictionResult.issues || []).filter(
           (issue) => (issue.prediction?.confidence ?? 0) >= appliedMinConfidence
@@ -237,10 +276,6 @@ const recommendIssues = async (req, res) => {
         relaxedCandidates,
         predictionCache
       );
-
-      if (relaxedPredictionResult.error?.code === 'ML_API_UNAVAILABLE') {
-        return res.status(503).json({ error: 'ML service unavailable' });
-      }
 
       finalCandidateIssues = rankByConfidence(
         mergeUniqueIssues([
